@@ -1,0 +1,7 @@
+# Rahasia & sertifikat — jangan di-commit
+.env
+wazuh/config/wazuh_indexer_ssl_certs/*
+!wazuh/config/wazuh_indexer_ssl_certs/.gitkeep
+
+# Hasil uji mentah
+tests/results/*.log
