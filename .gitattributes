@@ -1,0 +1,8 @@
+# Semua file teks memakai akhir baris LF (format Linux), karena config dan
+# script dipakai di dalam container Linux. CRLF bisa membuat script .sh error.
+* text=auto eol=lf
+
+# File biner
+*.png binary
+*.jpg binary
+*.pdf binary
