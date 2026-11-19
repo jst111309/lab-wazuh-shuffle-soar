@@ -1,0 +1,13 @@
+# Pembuat sertifikat SSL untuk Wazuh (cukup dijalankan SEKALI, sebelum docker compose up).
+#   docker compose -f generate-indexer-certs.yml run --rm generator
+# Hasilnya tersimpan di wazuh/config/wazuh_indexer_ssl_certs/
+services:
+  generator:
+    image: wazuh/wazuh-certs-generator:0.0.5
+    hostname: wazuh-certs-generator
+    environment:
+      - CERT_TOOL_VERSION=4.14
+      - CERT_TOOL_REPOSITORY=${CERT_TOOL_REPOSITORY:-prod}
+    volumes:
+      - ./wazuh/config/wazuh_indexer_ssl_certs/:/certificates/
+      - ./wazuh/config/certs.yml:/config/certs.yml
