@@ -18,10 +18,22 @@ echo "[endpoint-1] 2/4 sshd"
 /usr/sbin/sshd
 
 echo "[endpoint-1] 3/4 suricata"
-mkdir -p /var/log/suricata
+mkdir -p /var/log/suricata /var/lib/suricata/rules
 rm -f /var/run/suricata.pid
 touch /var/log/suricata/eve.json
+# Rule ET Open disimpan di volume. Jika belum ada: pakai file kosong dulu,
+# lalu unduh di background (Suricata tetap jalan dengan local.rules).
+ET=/var/lib/suricata/rules
+[ -f $ET/classification.config ] || cp /etc/suricata/classification.config $ET/
+[ -f $ET/reference.config ]      || cp /etc/suricata/reference.config $ET/
+[ -f $ET/et-open.rules ]         || touch $ET/et-open.rules
 suricata -c /etc/suricata/suricata.yaml --af-packet -D
+if [ ! -s $ET/et-open.rules ]; then
+    echo "[endpoint-1] ET Open belum ada -> unduh di background (log: /var/log/suricata/et-open-update.log)"
+    nohup et-open-update.sh >/dev/null 2>&1 &
+else
+    echo "[endpoint-1] ET Open: $(grep -c '^alert' $ET/et-open.rules) rule aktif"
+fi
 
 echo "[endpoint-1] 4/4 wazuh-agent"
 /var/ossec/bin/wazuh-control start

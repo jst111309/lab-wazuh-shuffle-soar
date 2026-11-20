@@ -1,7 +1,7 @@
 # =============================================================================
 # endpoint-1 — SSH GATEWAY (Ubuntu 22.04)
 #   Server akses jarak jauh: pintu masuk admin ke jaringan.
-#   OpenSSH + rsyslog + iptables + Suricata (IDS) + Wazuh agent
+#   OpenSSH + rsyslog + iptables + Suricata (IDS, ET Open + rule CLO3) + Wazuh agent
 #   Skenario: 1. SSH brute force, 2. unauthorized login, 6. port scanning
 # =============================================================================
 FROM ubuntu:22.04
@@ -45,6 +45,10 @@ RUN useradd -m -s /bin/bash sysadmin && echo 'sysadmin:Sysadm1n#Lab2026' | chpas
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
+
+# Pengunduh rule ET Open (lengkap) — dijalankan saat container start
+COPY suricata/et-open-update.sh /usr/local/bin/et-open-update.sh
+RUN chmod +x /usr/local/bin/et-open-update.sh
 
 EXPOSE 22
 ENTRYPOINT ["/entrypoint.sh"]
