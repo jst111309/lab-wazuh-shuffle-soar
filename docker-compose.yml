@@ -178,6 +178,25 @@ services:
       soc-net:
         ipv4_address: 10.20.0.12
 
+  # ---------------------------------------------------------------------------
+  # 7. ATTACKER — mesin simulasi serangan (Ubuntu 22.04)
+  #    Dipakai lewat: docker exec -it attacker bash
+  # ---------------------------------------------------------------------------
+  attacker:
+    build: ./attacker
+    image: clo3/attacker:latest
+    container_name: attacker
+    hostname: attacker
+    restart: unless-stopped
+    init: true
+    mem_limit: 512m
+    volumes:
+      - ./attacker/scripts:/scripts     # script pengujian per skenario
+      - ./tests/results:/results        # hasil uji 10x
+    networks:
+      soc-net:
+        ipv4_address: 10.20.0.100
+
 # -----------------------------------------------------------------------------
 # Network bersama untuk ke-7 container (IP statis)
 #   .1   gateway (akses dari laptop/host)
