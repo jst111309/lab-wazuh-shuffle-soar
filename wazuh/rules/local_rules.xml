@@ -1,0 +1,230 @@
+<!--
+  =============================================================================
+  CLO3 — Custom detection rules (Wazuh 4.14)
+  =============================================================================
+  Prinsip:
+    - Setiap rule DIBANGUN DI ATAS rule bawaan Wazuh yang sudah terbukti aktif
+      (diuji dengan wazuh-logtest), lalu ditambah kebijakan / threshold / level.
+    - ID 100100-100699 (rentang khusus rule buatan sendiri).
+    - Semua rule bergrup "clo3" -> integrasi Shuffle cukup memfilter grup ini.
+    - Setiap rule punya grup skenario: clo3_s1 ... clo3_s6.
+
+  Ringkasan:
+    S1 SSH brute force ........ 100100, 100101   (endpoint-1)
+    S2 Unauthorized login ..... 100200           (endpoint-1)
+    S3 File integrity ......... 100300, 100301   (endpoint-2)
+    S4 Malware detection ...... 100400           (endpoint-2, CDB list)
+    S5 Privilege escalation ... 100500, 100501   (endpoint-2)
+    S6 Port scanning .......... 100600-100603    (endpoint-1, Suricata)
+
+  Level:  8 = perlu perhatian | 10 = serius | 12 = tinggi (aksi) | 14 = kritis
+  =============================================================================
+-->
+
+<group name="clo3,">
+
+  <!-- ===========================================================================
+       S1 — SSH BRUTE FORCE (endpoint-1)
+       Dasar   : 5760 "sshd: authentication failed" (level 5)
+                 5710 "sshd: attempt to login using a non-existent user" (level 5)
+       Bawaan  : 5763 / 5712 juga mendeteksi brute force (±8 kali), kita pakai
+                 threshold sendiri yang lebih ketat & bisa diatur.
+       Respons : block IP sumber
+       ======================================================================== -->
+
+  <!-- Cara memicu: >= 5 login SSH GAGAL (password salah) ke endpoint-1
+       dari IP yang SAMA dalam 60 detik. -->
+  <rule id="100100" level="10" frequency="5" timeframe="60">
+    <if_matched_sid>5760</if_matched_sid>
+    <same_source_ip />
+    <description>CLO3 [S1] SSH brute force: 5+ login gagal dalam 60 detik dari $(srcip)</description>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+    <group>clo3_s1,authentication_failures,</group>
+  </rule>
+
+  <!-- Cara memicu: >= 5 login SSH ke endpoint-1 memakai USERNAME YANG TIDAK ADA
+       dari IP yang SAMA dalam 60 detik. -->
+  <rule id="100101" level="10" frequency="5" timeframe="60">
+    <if_matched_sid>5710</if_matched_sid>
+    <same_source_ip />
+    <description>CLO3 [S1] SSH brute force (user tidak dikenal): 5+ percobaan dalam 60 detik dari $(srcip)</description>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+    <group>clo3_s1,authentication_failures,</group>
+  </rule>
+
+  <!-- ===========================================================================
+       S2 — UNAUTHORIZED LOGIN (endpoint-1)
+       Dasar   : 5715 "sshd: authentication success" (level 3)
+       Masalah : bawaan menganggap SEMUA login berhasil normal (level 3).
+       Kebijakan: hanya "sysadmin" yang boleh login SSH ke SSH Gateway.
+       Respons : buat incident + notifikasi
+       ======================================================================== -->
+
+  <!-- Cara memicu: login SSH BERHASIL ke endpoint-1 dengan user selain
+       sysadmin (contoh: user "victim"). Login sysadmin TIDAK memicu rule ini. -->
+  <rule id="100200" level="12">
+    <if_sid>5715</if_sid>
+    <user negate="yes">^sysadmin$</user>
+    <description>CLO3 [S2] Unauthorized login: user "$(dstuser)" berhasil login SSH dari $(srcip) (bukan akun yang diizinkan)</description>
+    <mitre>
+      <id>T1078</id>
+    </mitre>
+    <group>clo3_s2,authentication_success,</group>
+  </rule>
+
+  <!-- ===========================================================================
+       S3 — FILE INTEGRITY MONITORING (endpoint-2)
+       Dasar   : 550 "Integrity checksum changed" (level 7)
+                 553 "File deleted" (level 7)
+                 554 "File added to the system" (level 5)
+       Masalah : bawaan memberi level sama untuk semua file.
+       Respons : buat incident + investigasi
+       ======================================================================== -->
+
+  <!-- Cara memicu: ubah / tambah / hapus file di /var/www/html pada endpoint-2
+       (contoh: edit index.html). Hasilnya juga terlihat di http://localhost:8080 -->
+  <rule id="100300" level="10">
+    <if_sid>550, 553, 554</if_sid>
+    <field name="file">^/var/www/html</field>
+    <description>CLO3 [S3] Website diubah (kemungkinan defacement): $(file)</description>
+    <mitre>
+      <id>T1491.001</id>
+    </mitre>
+    <group>clo3_s3,syscheck,</group>
+  </rule>
+
+  <!-- Cara memicu: ubah file akun / hak akses di endpoint-2:
+       /etc/passwd, /etc/shadow, /etc/group, /etc/sudoers, /etc/sudoers.d/*
+       (contoh: tambah user baru atau tambah baris di sudoers). -->
+  <rule id="100301" level="12">
+    <if_sid>550, 553, 554</if_sid>
+    <field name="file">^/etc/passwd$|^/etc/shadow$|^/etc/group$|^/etc/sudoers</field>
+    <description>CLO3 [S3] File akun/hak akses kritis diubah: $(file)</description>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+    <group>clo3_s3,syscheck,</group>
+  </rule>
+
+  <!-- ===========================================================================
+       S4 — MALWARE DETECTION (endpoint-2)
+       Dasar   : 554 / 550 (file baru / berubah) — mekanisme SAMA dengan rule
+                 bawaan 99901 (IOC malware) yang memakai CDB list
+                 etc/lists/malicious-ioc/malware-hashes (200 hash malware nyata).
+       Tambahan: CDB list lab "clo3-malware-hashes" berisi hash SHA256
+                 EICAR test file (file uji standar antivirus, TIDAK berbahaya).
+       Respons : karantina file
+       ======================================================================== -->
+
+  <!-- Cara memicu: taruh EICAR test file di /var/www/uploads pada endpoint-2.
+       FIM menghitung SHA256 -> cocok dengan CDB list -> alert. -->
+  <rule id="100400" level="14">
+    <if_sid>554, 550</if_sid>
+    <field name="file">^/var/www/uploads</field>
+    <list field="sha256" lookup="match_key">etc/lists/clo3-malware-hashes</list>
+    <description>CLO3 [S4] Malware terdeteksi di folder upload: $(file) (hash cocok dengan daftar IOC)</description>
+    <mitre>
+      <id>T1105</id>
+    </mitre>
+    <group>clo3_s4,syscheck,malware,</group>
+  </rule>
+
+  <!-- ===========================================================================
+       S5 — PRIVILEGE ESCALATION (endpoint-2)
+       Dasar   : 5405 "Unauthorized user attempted to use sudo" (level 5)
+                 5402 "Successful sudo to ROOT executed" (level 3)
+                 5407 "Successful sudo executed" (level 3)
+                 5403 "First time user executed sudo" (level 4) — sudo PERTAMA
+                      oleh seorang user ditangkap rule ini, bukan 5402
+       Kebijakan: hanya "sysadmin" yang boleh memakai sudo di Web Server.
+       Respons : alert, investigasi, kunci akun (sesuai kebijakan)
+       ======================================================================== -->
+
+  <!-- Cara memicu: user yang TIDAK terdaftar di sudoers (contoh: webdev)
+       menjalankan perintah sudo di endpoint-2. -->
+  <rule id="100500" level="12">
+    <if_sid>5405</if_sid>
+    <description>CLO3 [S5] Privilege escalation: user "$(srcuser)" tidak berhak mencoba sudo</description>
+    <mitre>
+      <id>T1548.003</id>
+    </mitre>
+    <group>clo3_s5,</group>
+  </rule>
+
+  <!-- Cara memicu: sudo BERHASIL oleh user selain sysadmin
+       (terjadi jika sudoers diubah diam-diam - lihat juga rule 100301). -->
+  <rule id="100501" level="12">
+    <if_sid>5402, 5403, 5407</if_sid>
+    <!-- Log sudo: "sudo:  <user yang menjalankan> : TTY=... ; USER=<tujuan> ; ..."
+         srcuser adalah field statis Wazuh (tidak bisa dipakai di <field>/<user>
+         untuk sudo karena <user> membaca user tujuan = root), maka dicocokkan
+         langsung dari teks log: aktif jika yang menjalankan sudo BUKAN sysadmin. -->
+    <regex type="pcre2" negate="yes">^\s*sysadmin\s:</regex>
+    <description>CLO3 [S5] Privilege escalation: sudo berhasil oleh user non-admin "$(srcuser)"</description>
+    <mitre>
+      <id>T1548.003</id>
+    </mitre>
+    <group>clo3_s5,</group>
+  </rule>
+
+  <!-- ===========================================================================
+       S6 — PORT SCANNING (endpoint-1, Suricata)
+       Dasar   : 86601 "Suricata: Alert - ..." (level 3, untuk SEMUA alert Suricata)
+       Sumber rule Suricata:
+         - local.rules   : signature "CLO3 SCAN ..." (threshold SYN/NULL/FIN/XMAS)
+         - et-open.rules : signature "ET SCAN ..." (rule komunitas ET Open)
+       Respons : block IP sumber JIKA memenuhi threshold (rule 100601 / 100603)
+       ======================================================================== -->
+
+  <!-- Cara memicu: port scan ke endpoint-1 (>= 20 port dalam 10 detik,
+       atau scan NULL/FIN/XMAS) -> Suricata local.rules -> eve.json -->
+  <rule id="100600" level="8">
+    <if_sid>86601</if_sid>
+    <field name="alert.signature">^CLO3 SCAN</field>
+    <description>CLO3 [S6] Port scan terdeteksi dari $(src_ip): $(alert.signature)</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+    <group>clo3_s6,</group>
+  </rule>
+
+  <!-- Cara memicu: port scan BERULANG — 3 alert 100600 dari IP yang sama
+       dalam 60 detik. Ini THRESHOLD untuk keputusan block IP. -->
+  <rule id="100601" level="12" frequency="3" timeframe="60">
+    <if_matched_sid>100600</if_matched_sid>
+    <same_field>src_ip</same_field>
+    <description>CLO3 [S6] Port scan berulang dari $(src_ip) melewati threshold (3x dalam 60 detik)</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+    <group>clo3_s6,</group>
+  </rule>
+
+  <!-- Cara memicu: scan yang dikenali rule komunitas ET Open
+       (signature diawali "ET SCAN"). -->
+  <rule id="100602" level="8">
+    <if_sid>86601</if_sid>
+    <field name="alert.signature">^ET SCAN</field>
+    <description>CLO3 [S6] Scan dikenali ET Open dari $(src_ip): $(alert.signature)</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+    <group>clo3_s6,</group>
+  </rule>
+
+  <!-- Cara memicu: 3 alert ET SCAN (100602) dari IP yang sama dalam 60 detik. -->
+  <rule id="100603" level="12" frequency="3" timeframe="60">
+    <if_matched_sid>100602</if_matched_sid>
+    <same_field>src_ip</same_field>
+    <description>CLO3 [S6] Scan berulang (ET Open) dari $(src_ip) melewati threshold (3x dalam 60 detik)</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+    <group>clo3_s6,</group>
+  </rule>
+
+</group>
