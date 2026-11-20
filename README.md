@@ -12,11 +12,12 @@ Automated SOC lab: **Wazuh SIEM** detects attacks, **Shuffle SOAR** analyzes the
 7 containers on one Docker network (`soc-net`, 10.20.0.0/24):
 
 ```
-                 hydra / nmap / malware sample
+                     attack simulation
   ┌───────────┐ ───────────────────────────┐────────────────────┐
   │ attacker  │                            ▼                    ▼
   │  .100     │                     ┌────────────┐       ┌────────────┐
   └───────────┘                     │ endpoint-1 │       │ endpoint-2 │
+                                    │ SSH gateway│       │ Web server │
                                     │ .11        │       │ .12        │
                                     └─────┬──────┘       └─────┬──────┘
                                           │ Wazuh agent (1514) │
@@ -37,8 +38,8 @@ Automated SOC lab: **Wazuh SIEM** detects attacks, **Shuffle SOAR** analyzes the
 | wazuh-indexer | 10.20.0.13 | Alert storage (OpenSearch) | 2 GB |
 | wazuh-dashboard | 10.20.0.14 | Monitoring & evaluation UI | 768 MB |
 | shuffle | 10.20.0.20 | SOAR playbooks, notifications | 2 GB |
-| endpoint-1 | 10.20.0.11 | Ubuntu + SSH + Wazuh agent + Suricata | 512 MB |
-| endpoint-2 | 10.20.0.12 | Ubuntu + SSH + Wazuh agent | 256 MB |
+| endpoint-1 | 10.20.0.11 | **SSH gateway** — Ubuntu 22.04, OpenSSH, Suricata IDS, iptables, Wazuh agent | 512 MB |
+| endpoint-2 | 10.20.0.12 | **Web server** — Debian 12, nginx, OpenSSH (admin), sudo, Wazuh agent (FIM) | 256 MB |
 | attacker | 10.20.0.100 | Attack simulation | 512 MB |
 
 ## Response flow
@@ -53,14 +54,16 @@ Automated SOC lab: **Wazuh SIEM** detects attacks, **Shuffle SOAR** analyzes the
 
 ## Attack scenarios
 
-| # | Scenario | Wazuh detection | SOAR response |
-|---|---|---|---|
-| 1 | SSH brute force | Many failed logins | Block source IP |
-| 2 | Unauthorized login | Login by unknown account | Incident + notification |
-| 3 | File integrity | Critical file changed | Incident + investigation |
-| 4 | Malware | Malicious file hash | Quarantine file |
-| 5 | Privilege escalation | Suspicious sudo / su | Alert + restrict access |
-| 6 | Port scanning | Suricata scan alert | Block IP above threshold |
+Each endpoint plays a different role, so each one produces different logs and alerts:
+
+| # | Scenario | Target | Wazuh detection | SOAR response |
+|---|---|---|---|---|
+| 1 | SSH brute force | endpoint-1 (SSH gateway) | Many failed logins in `auth.log` | Block source IP |
+| 2 | Unauthorized login | endpoint-1 (SSH gateway) | Login by an account outside the allow-list | Incident + notification |
+| 6 | Port scanning | endpoint-1 (SSH gateway) | Suricata scan alert | Block IP above threshold |
+| 3 | File integrity | endpoint-2 (web server) | Website / account file changed (FIM) | Incident + investigation |
+| 4 | Malware | endpoint-2 (web server) | Uploaded file hash on the malware list | Quarantine file |
+| 5 | Privilege escalation | endpoint-2 (web server) | `sudo` by a non-admin user | Alert + restrict access |
 
 ## Quick start
 
@@ -81,6 +84,7 @@ docker compose up -d
 ```
 
 Wazuh dashboard: <https://localhost> (user `admin`, password from `.env`).
+Web server (endpoint-2): <http://localhost:8080>.
 
 ## Repository layout
 
@@ -93,7 +97,8 @@ Wazuh dashboard: <https://localhost> (user `admin`, password from `.env`).
 │   ├── rules/                   # custom detection rules
 │   ├── lists/                   # CDB lists (allowed users, malware hashes)
 │   └── active-response/         # custom response scripts
-├── endpoint/                    # endpoint images
+├── endpoint-1/                  # SSH gateway image (Ubuntu + Suricata)
+├── endpoint-2/                  # web server image (Debian + nginx)
 ├── attacker/scripts/            # attack simulation scripts
 ├── shuffle/workflows/           # exported SOAR playbooks
 ├── tests/results/               # 10x test results per scenario
