@@ -9,7 +9,7 @@ Automated SOC lab: **Wazuh SIEM** detects attacks, **Shuffle SOAR** analyzes the
 
 ## Architecture
 
-7 containers on one Docker network (`soc-net`, 172.20.0.0/24):
+7 containers on one Docker network (`soc-net`, 10.20.0.0/24):
 
 ```
                  hydra / nmap / malware sample
@@ -33,13 +33,13 @@ Automated SOC lab: **Wazuh SIEM** detects attacks, **Shuffle SOAR** analyzes the
 
 | Container | IP | Role | RAM limit |
 |---|---|---|---|
-| wazuh-manager | 172.20.0.10 | Log analysis, rules, active response, API | 1 GB |
-| wazuh-indexer | 172.20.0.13 | Alert storage (OpenSearch) | 2 GB |
-| wazuh-dashboard | 172.20.0.14 | Monitoring & evaluation UI | 768 MB |
-| shuffle | 172.20.0.20 | SOAR playbooks, notifications | 2 GB |
-| endpoint-1 | 172.20.0.11 | Ubuntu + SSH + Wazuh agent + Suricata | 512 MB |
-| endpoint-2 | 172.20.0.12 | Ubuntu + SSH + Wazuh agent | 256 MB |
-| attacker | 172.20.0.100 | Attack simulation | 512 MB |
+| wazuh-manager | 10.20.0.10 | Log analysis, rules, active response, API | 1 GB |
+| wazuh-indexer | 10.20.0.13 | Alert storage (OpenSearch) | 2 GB |
+| wazuh-dashboard | 10.20.0.14 | Monitoring & evaluation UI | 768 MB |
+| shuffle | 10.20.0.20 | SOAR playbooks, notifications | 2 GB |
+| endpoint-1 | 10.20.0.11 | Ubuntu + SSH + Wazuh agent + Suricata | 512 MB |
+| endpoint-2 | 10.20.0.12 | Ubuntu + SSH + Wazuh agent | 256 MB |
+| attacker | 10.20.0.100 | Attack simulation | 512 MB |
 
 ## Response flow
 
