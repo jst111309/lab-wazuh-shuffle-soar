@@ -125,6 +125,35 @@ services:
       soc-net:
         ipv4_address: 10.20.0.14
 
+  # ---------------------------------------------------------------------------
+  # 5. ENDPOINT-1 — SSH + Wazuh agent + Suricata
+  #    Skenario: SSH brute force, unauthorized login, port scanning
+  # ---------------------------------------------------------------------------
+  endpoint-1:
+    build: ./endpoint
+    image: clo3/endpoint:latest
+    container_name: endpoint-1
+    hostname: endpoint-1
+    restart: unless-stopped
+    init: true      # tini sebagai PID 1: membersihkan proses zombie saat agent reload
+    mem_limit: 512m
+    cap_add:
+      - NET_ADMIN   # iptables (active response firewall-drop)
+      - NET_RAW     # Suricata membaca paket di eth0
+      - SYS_NICE    # Suricata mengatur prioritas thread
+    environment:
+      - ENABLE_SURICATA=yes
+    volumes:
+      - ./endpoint/config/endpoint-1/ossec.conf:/config/ossec.conf:ro
+      - ./endpoint/suricata/suricata.yaml:/etc/suricata/suricata.yaml:ro
+      - ./endpoint/suricata/local.rules:/etc/suricata/rules/local.rules:ro
+      - endpoint1_ossec_etc:/var/ossec/etc   # simpan kunci agent agar tidak daftar ulang
+    depends_on:
+      - wazuh.manager
+    networks:
+      soc-net:
+        ipv4_address: 10.20.0.11
+
 # -----------------------------------------------------------------------------
 # Network bersama untuk ke-7 container (IP statis)
 #   .1   gateway (akses dari laptop/host)
@@ -156,3 +185,4 @@ volumes:
   wazuh-indexer-data:
   wazuh-dashboard-config:
   wazuh-dashboard-custom:
+  endpoint1_ossec_etc:
