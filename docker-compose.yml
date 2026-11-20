@@ -126,12 +126,13 @@ services:
         ipv4_address: 10.20.0.14
 
   # ---------------------------------------------------------------------------
-  # 5. ENDPOINT-1 — SSH + Wazuh agent + Suricata
-  #    Skenario: SSH brute force, unauthorized login, port scanning
+  # 5. ENDPOINT-1 — SSH GATEWAY (Ubuntu 22.04)
+  #    SSH + Suricata (IDS) + iptables + Wazuh agent
+  #    Skenario: 1. SSH brute force, 2. unauthorized login, 6. port scanning
   # ---------------------------------------------------------------------------
   endpoint-1:
-    build: ./endpoint
-    image: clo3/endpoint:latest
+    build: ./endpoint-1
+    image: clo3/endpoint-ssh:latest
     container_name: endpoint-1
     hostname: endpoint-1
     restart: unless-stopped
@@ -141,18 +142,41 @@ services:
       - NET_ADMIN   # iptables (active response firewall-drop)
       - NET_RAW     # Suricata membaca paket di eth0
       - SYS_NICE    # Suricata mengatur prioritas thread
-    environment:
-      - ENABLE_SURICATA=yes
     volumes:
-      - ./endpoint/config/endpoint-1/ossec.conf:/config/ossec.conf:ro
-      - ./endpoint/suricata/suricata.yaml:/etc/suricata/suricata.yaml:ro
-      - ./endpoint/suricata/local.rules:/etc/suricata/rules/local.rules:ro
+      - ./endpoint-1/ossec.conf:/config/ossec.conf:ro
+      - ./endpoint-1/suricata/suricata.yaml:/etc/suricata/suricata.yaml:ro
+      - ./endpoint-1/suricata/local.rules:/etc/suricata/rules/local.rules:ro
       - endpoint1_ossec_etc:/var/ossec/etc   # simpan kunci agent agar tidak daftar ulang
     depends_on:
       - wazuh.manager
     networks:
       soc-net:
         ipv4_address: 10.20.0.11
+
+  # ---------------------------------------------------------------------------
+  # 6. ENDPOINT-2 — WEB SERVER (Debian 12)
+  #    nginx + SSH admin + sudo + Wazuh agent (FIM realtime)
+  #    Skenario: 3. file integrity, 4. malware detection, 5. privilege escalation
+  #    Website: http://localhost:8080
+  # ---------------------------------------------------------------------------
+  endpoint-2:
+    build: ./endpoint-2
+    image: clo3/endpoint-web:latest
+    container_name: endpoint-2
+    hostname: endpoint-2
+    restart: unless-stopped
+    init: true      # tini sebagai PID 1: membersihkan proses zombie saat agent reload
+    mem_limit: 256m
+    ports:
+      - "8080:80"   # website perusahaan (untuk demo defacement di browser)
+    volumes:
+      - ./endpoint-2/ossec.conf:/config/ossec.conf:ro
+      - endpoint2_ossec_etc:/var/ossec/etc   # simpan kunci agent agar tidak daftar ulang
+    depends_on:
+      - wazuh.manager
+    networks:
+      soc-net:
+        ipv4_address: 10.20.0.12
 
 # -----------------------------------------------------------------------------
 # Network bersama untuk ke-7 container (IP statis)
@@ -186,3 +210,4 @@ volumes:
   wazuh-dashboard-config:
   wazuh-dashboard-custom:
   endpoint1_ossec_etc:
+  endpoint2_ossec_etc:
