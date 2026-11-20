@@ -58,6 +58,9 @@ services:
       - ./wazuh/config/wazuh_indexer_ssl_certs/wazuh.manager.pem:/etc/ssl/filebeat.pem
       - ./wazuh/config/wazuh_indexer_ssl_certs/wazuh.manager-key.pem:/etc/ssl/filebeat.key
       - ./wazuh/config/wazuh_cluster/wazuh_manager.conf:/wazuh-config-mount/etc/ossec.conf
+      # CLO3: custom detection rules & CDB list
+      - ./wazuh/rules/local_rules.xml:/var/ossec/etc/rules/local_rules.xml
+      - ./wazuh/lists/clo3-malware-hashes:/var/ossec/etc/lists/clo3-malware-hashes
     networks:
       soc-net:
         ipv4_address: 10.20.0.10
@@ -137,7 +140,7 @@ services:
     hostname: endpoint-1
     restart: unless-stopped
     init: true      # tini sebagai PID 1: membersihkan proses zombie saat agent reload
-    mem_limit: 512m
+    mem_limit: 1536m   # ET Open lengkap (±40.000 rule) butuh RAM lebih besar
     cap_add:
       - NET_ADMIN   # iptables (active response firewall-drop)
       - NET_RAW     # Suricata membaca paket di eth0
@@ -147,6 +150,7 @@ services:
       - ./endpoint-1/suricata/suricata.yaml:/etc/suricata/suricata.yaml:ro
       - ./endpoint-1/suricata/local.rules:/etc/suricata/rules/local.rules:ro
       - endpoint1_ossec_etc:/var/ossec/etc   # simpan kunci agent agar tidak daftar ulang
+      - endpoint1_suricata:/var/lib/suricata # simpan rule ET Open (cukup unduh sekali)
     depends_on:
       - wazuh.manager
     networks:
@@ -229,4 +233,5 @@ volumes:
   wazuh-dashboard-config:
   wazuh-dashboard-custom:
   endpoint1_ossec_etc:
+  endpoint1_suricata:
   endpoint2_ossec_etc:
