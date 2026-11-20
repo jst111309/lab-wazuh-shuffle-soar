@@ -1,0 +1,48 @@
+%YAML 1.1
+---
+# Suricata minimal untuk lab: hanya rule lokal, output hanya alert.
+# Dipakai endpoint-1 (skenario 6: port scanning).
+
+vars:
+  address-groups:
+    HOME_NET: "[10.20.0.0/24]"
+    EXTERNAL_NET: "any"
+  port-groups:
+    HTTP_PORTS: "80"
+    SSH_PORTS: "22"
+
+default-log-dir: /var/log/suricata/
+
+stats:
+  enabled: no
+
+outputs:
+  - eve-log:
+      enabled: yes
+      filetype: regular
+      filename: eve.json
+      types:
+        - alert
+
+logging:
+  default-log-level: notice
+  outputs:
+    - console:
+        enabled: yes
+    - file:
+        enabled: yes
+        level: info
+        filename: /var/log/suricata/suricata.log
+
+af-packet:
+  - interface: eth0
+    cluster-id: 99
+    cluster-type: cluster_flow
+    defrag: yes
+
+default-rule-path: /etc/suricata/rules
+rule-files:
+  - local.rules
+
+classification-file: /etc/suricata/classification.config
+reference-config-file: /etc/suricata/reference.config
