@@ -12,6 +12,9 @@ fi
 echo "[endpoint-1] 1/4 rsyslog"
 rm -f /run/rsyslogd.pid
 touch /var/log/auth.log /var/log/syslog
+# rsyslog Ubuntu turun hak ke user "syslog" ($PrivDropToUser) -> file log harus
+# dimiliki syslog, kalau tidak log SSH tidak tertulis & Wazuh tidak mendeteksi apa pun
+chown syslog:adm /var/log/auth.log /var/log/syslog
 rsyslogd
 
 echo "[endpoint-1] 2/4 sshd"
