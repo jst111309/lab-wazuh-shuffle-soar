@@ -1,6 +1,6 @@
 # Lab Wazuh + Shuffle SOAR
 
-Automated SOC lab: **Wazuh SIEM** detects attacks, **Shuffle SOAR** analyzes the alerts and triggers **automated incident response** (IP blocking, file quarantine, account lock) with email notifications — fully containerized with Docker.
+Automated SOC lab: **Wazuh SIEM** detects attacks, **Shuffle SOAR** analyzes the alerts and triggers **automated incident response** (IP blocking, file quarantine, account lock) with Telegram bot notifications — fully containerized with Docker.
 
 > Built as a university security engineering project (Project CLO 3 — SIEM + SOAR).
 > ⚠️ **Lab only.** Default credentials are used on purpose. Do not expose this stack to the internet.
@@ -28,7 +28,7 @@ Automated SOC lab: **Wazuh SIEM** detects attacks, **Shuffle SOAR** analyzes the
                webhook    │                      │  Wazuh API: active response
                           ▼                      │
                     ┌──────────────────────────────┐
-                    │ shuffle .20 (SOAR playbooks) │ ──► Email (SMTP)
+                    │ shuffle .20 (SOAR playbooks) │ ──► Telegram bot
                     └──────────────────────────────┘
 ```
 
@@ -50,7 +50,7 @@ Automated SOC lab: **Wazuh SIEM** detects attacks, **Shuffle SOAR** analyzes the
 2. The manager forwards the alert to a Shuffle webhook.
 3. The Shuffle playbook maps the alert fields, scores the risk and picks an action.
 4. Shuffle calls the Wazuh API, which runs the active response on the endpoint.
-5. Shuffle verifies the action and sends an email report.
+5. Shuffle verifies the action and sends an incident report to Telegram.
 
 ## Attack scenarios
 
