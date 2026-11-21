@@ -228,3 +228,68 @@
   </rule>
 
 </group>
+
+<!--
+  =============================================================================
+  CLO3 — Rule VERIFIKASI active response (langkah VERIFY di playbook Shuffle)
+  =============================================================================
+  Setiap script active response menulis ke active-responses.log di endpoint
+  -> dibaca agent -> rule di bawah. Shuffle mencari alert ini di wazuh-indexer
+  untuk memastikan tindakan BENAR-BENAR terjadi.
+  Grup "clo3_ar" (BUKAN "clo3") -> tidak dikirim lagi ke Shuffle (tidak loop).
+  Dasar: 651/652 (firewall-drop), 657 (active response umum, ar_log_json).
+  =============================================================================
+-->
+<group name="clo3_ar,active_response,">
+
+  <!-- P1/P6: IP diblokir (iptables) di endpoint-1 -->
+  <rule id="100700" level="6">
+    <if_sid>651</if_sid>
+    <description>CLO3 [AR] IP $(srcip) DIBLOKIR (firewall-drop)</description>
+    <group>clo3_ar_block,</group>
+  </rule>
+
+  <!-- P1/P6: blokir dibuka otomatis setelah timeout -->
+  <rule id="100701" level="3">
+    <if_sid>652</if_sid>
+    <description>CLO3 [AR] Blokir IP $(srcip) DIBUKA otomatis (timeout)</description>
+    <group>clo3_ar_unblock,</group>
+  </rule>
+
+  <!-- P4: file dikarantina -->
+  <rule id="100702" level="6">
+    <if_sid>657</if_sid>
+    <field name="clo3.action">^quarantine$</field>
+    <field name="clo3.result">^success$</field>
+    <description>CLO3 [AR] File DIKARANTINA: $(clo3.file) -> $(clo3.dest)</description>
+    <group>clo3_ar_quarantine,</group>
+  </rule>
+
+  <!-- P4: karantina gagal / ditolak -->
+  <rule id="100703" level="8">
+    <if_sid>657</if_sid>
+    <field name="clo3.action">^quarantine$</field>
+    <field name="clo3.result">^failed$|^rejected$</field>
+    <description>CLO3 [AR] Karantina GAGAL ($(clo3.result)): $(clo3.file) - $(clo3.reason)</description>
+    <group>clo3_ar_quarantine,</group>
+  </rule>
+
+  <!-- P5: akun dikunci -->
+  <rule id="100704" level="6">
+    <if_sid>657</if_sid>
+    <field name="parameters.program">disable-account$</field>
+    <field name="command">^add$</field>
+    <description>CLO3 [AR] Akun DIKUNCI (disable-account)</description>
+    <group>clo3_ar_lock,</group>
+  </rule>
+
+  <!-- P5: kunci akun dibuka otomatis setelah timeout -->
+  <rule id="100705" level="3">
+    <if_sid>657</if_sid>
+    <field name="parameters.program">disable-account$</field>
+    <field name="command">^delete$</field>
+    <description>CLO3 [AR] Kunci akun DIBUKA otomatis (timeout)</description>
+    <group>clo3_ar_unlock,</group>
+  </rule>
+
+</group>
