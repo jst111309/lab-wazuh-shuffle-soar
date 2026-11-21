@@ -13,7 +13,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Paket dasar, web server, SSH admin, sudo, syslog
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates curl gnupg lsb-release procps iproute2 \
-        nginx openssh-server sudo rsyslog \
+        nginx openssh-server sudo rsyslog jq \
     && rm -rf /var/lib/apt/lists/*
 
 # Wazuh agent (versi harus sama dengan manager)
@@ -52,6 +52,11 @@ RUN rm -f /var/www/html/index.nginx-debian.html \
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
+
+# Active response CLO3: karantina file (dipanggil Shuffle lewat Wazuh API)
+COPY clo3-quarantine.sh /var/ossec/active-response/bin/clo3-quarantine.sh
+RUN chown root:wazuh /var/ossec/active-response/bin/clo3-quarantine.sh \
+    && chmod 750 /var/ossec/active-response/bin/clo3-quarantine.sh
 
 EXPOSE 80 22
 ENTRYPOINT ["/entrypoint.sh"]
