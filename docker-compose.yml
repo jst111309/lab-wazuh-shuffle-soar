@@ -201,6 +201,30 @@ services:
       soc-net:
         ipv4_address: 10.20.0.100
 
+  # ---------------------------------------------------------------------------
+  # 4. SHUFFLE — SOAR (Docker-in-Docker: frontend, backend, orborus, opensearch)
+  #    UI      : https://localhost:3443  (atau http://localhost:3001)
+  #    Webhook : http://10.20.0.20:5001/api/v1/hooks/<id>  (dari wazuh-manager)
+  #    Log setup: docker exec shuffle cat /var/log/shuffle-setup.log
+  # ---------------------------------------------------------------------------
+  shuffle:
+    build: ./shuffle
+    image: clo3/shuffle:latest
+    container_name: shuffle
+    hostname: shuffle
+    restart: unless-stopped
+    privileged: true          # wajib untuk Docker-in-Docker
+    mem_limit: 2560m
+    ports:
+      - "3001:3001"           # UI http
+      - "3443:3443"           # UI https
+    volumes:
+      - shuffle_docker:/var/lib/docker   # image & container internal Shuffle (download sekali)
+      - shuffle_data:/opt/shuffle/data   # database, app, file, kunci enkripsi
+    networks:
+      soc-net:
+        ipv4_address: 10.20.0.20
+
 # -----------------------------------------------------------------------------
 # Network bersama untuk ke-7 container (IP statis)
 #   .1   gateway (akses dari laptop/host)
@@ -234,4 +258,6 @@ volumes:
   wazuh-dashboard-custom:
   endpoint1_ossec_etc:
   endpoint1_suricata:
+  shuffle_docker:
+  shuffle_data:
   endpoint2_ossec_etc:
