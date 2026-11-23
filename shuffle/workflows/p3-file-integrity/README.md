@@ -34,8 +34,8 @@ Start, lalu salin ID webhook (`webhook_...`) untuk dipasang di Wazuh.
 ### 2. `analyze` — Shuffle Tools → Execute Python
 Code: isi file [`../map-8-fields.py`](../map-8-fields.py)
 
-### 3. `investigate` — Http → POST, **Delay 5** (tab Setup)
-Delay 5 detik agar alert respons kunci akun (100704/100705) sempat masuk indexer sebelum dicari.
+### 3. `investigate` — Http → POST, **Delay 15** (tab Setup)
+Delay 15 detik agar alert respons kunci akun (100704/100705) sempat masuk indexer sebelum dicari (indexer refresh ±5 detik + jeda Filebeat; delay 5 detik terbukti kadang kurang).
 
 | Kolom | Isi |
 |---|---|
