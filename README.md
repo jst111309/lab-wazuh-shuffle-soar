@@ -65,7 +65,7 @@ One scenario = one Shuffle workflow (playbook):
 | 3 | File integrity | endpoint-2 | 100300, 100301 | **Incident + investigation** (diff, hashes, mass-change check) | ✅ |
 | 4 | Malware | endpoint-2 | 100400 | **Quarantine file** (custom `clo3-quarantine.sh`) | ✅ |
 | 5 | Privilege escalation | endpoint-2 | 100500, 100501 | **Lock account** (`disable-account`, auto-unlock 180 s) | ✅ |
-| 6 | Port scanning | endpoint-1 | 100601, 100603 | **Block source IP** above threshold | ⏳ |
+| 6 | Port scanning | endpoint-1 | 100601, 100603 | **Block source IP** above threshold | ✅ |
 
 ### Detection rules (`wazuh/rules/local_rules.xml`)
 
@@ -139,7 +139,7 @@ Then build the playbooks in Shuffle following `shuffle/workflows/p*/README.md`, 
 | 0. Environment setup | ✅ |
 | 1. Wazuh deployment (2 endpoints, FIM, Suricata, custom rules) | ✅ |
 | 2. Wazuh ↔ Shuffle integration (webhook, 8-field mapping, Telegram) | ✅ |
-| 3. SOAR playbooks | 🔄 5 / 6 (all 3 required playbooks done) |
+| 3. SOAR playbooks | ✅ 6 / 6 |
 | 4. Automated response (block IP, quarantine, lock account) | ✅ block IP (P1), quarantine (P4), lock account (P5) all live |
 | 5. Testing (10x per scenario) | ⏳ |
 | 6. Report & demo | ⏳ |
